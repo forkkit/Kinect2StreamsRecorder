@@ -67,6 +67,7 @@ namespace Kinect_2_Streams_Recorder
         public int counter;
         public TimeSpan relativeTime;
         public long timestamp;
+        public Vector4 floorClipPlane;
     }
 
     public unsafe struct SingleFaceData
@@ -245,6 +246,7 @@ namespace Kinect_2_Streams_Recorder
         private string skelDir = null;
         private string hdfaceDir = null;
         private string audioDir = null;
+        private string floorDir = null;
 
         private System.IO.StreamWriter skelfile = null;
         private System.IO.StreamWriter facefile = null;
@@ -253,6 +255,7 @@ namespace Kinect_2_Streams_Recorder
         private System.IO.StreamWriter depthDataFile = null;
         private System.IO.StreamWriter bodyIndexDataFile = null;
         private System.IO.StreamWriter audioDataFile = null;
+        private System.IO.StreamWriter floorfile = null;
         private string audioFile = null;
         private System.IO.StreamWriter calib = null;
         private System.IO.StreamWriter log = null;
@@ -580,6 +583,14 @@ namespace Kinect_2_Streams_Recorder
                 this.skelfile = null;
             }
 
+
+            if (this.floorfile != null)
+            {
+                this.floorfile.Close();
+                this.floorfile.Dispose();
+                this.floorfile = null;
+            }
+
             if (this.facefile != null)
             {
                 this.facefile.Close();
@@ -889,6 +900,7 @@ namespace Kinect_2_Streams_Recorder
                             bodyData.counter = this.multiSourceFrameCounter;
                             bodyData.relativeTime = bodyFrame.RelativeTime;
                             bodyData.timestamp = this.timestamp;
+                            bodyData.floorClipPlane = bodyFrame.FloorClipPlane;
 
                             this.bodyBuffer.Enqueue(bodyData);
                             // this.log.WriteLine("Body Frame " + this.multiSourceFrameCounter + " added to buffer");
@@ -970,6 +982,7 @@ namespace Kinect_2_Streams_Recorder
             this.faceDir = Path.Combine(path, "Face");
             this.hdfaceDir = Path.Combine(path, "HDFace");
             this.audioDir = Path.Combine(path, "Audio");
+            this.floorDir = Path.Combine(path, "Floor");
 
             System.IO.Directory.CreateDirectory(this.directoryToSave);
 
@@ -991,6 +1004,8 @@ namespace Kinect_2_Streams_Recorder
             if (this.streamsToRecord[3]) {
                 System.IO.Directory.CreateDirectory(this.skelDir);
                 this.skelfile = new System.IO.StreamWriter(Path.Combine(this.skelDir, "skeleton.csv"));
+                System.IO.Directory.CreateDirectory(this.floorDir);
+                this.floorfile = new System.IO.StreamWriter(Path.Combine(this.floorDir, "floorData.csv"));
             }
 
             if (this.streamsToRecord[4]) {
@@ -1428,6 +1443,15 @@ namespace Kinect_2_Streams_Recorder
                 foreach (Body body in bodies)
                 {
                     this.skelfile.Write(tempBodyData.counter + ";" + tempBodyData.relativeTime.Ticks + ";" + tempBodyData.timestamp + ";");
+                    this.floorfile.Write(tempBodyData.counter + ";" + tempBodyData.relativeTime.Ticks + ";" + tempBodyData.timestamp + ";");
+
+                    // Write the floor data
+                    Vector4 floorClipPlane = tempBodyData.floorClipPlane;
+                    this.floorfile.WriteLine("{0};{1};{2};{3}",
+                        floorClipPlane.X,
+                        floorClipPlane.Y,
+                        floorClipPlane.Z,
+                        floorClipPlane.W);
 
                     IReadOnlyDictionary<JointType, Joint> joints = body.Joints;
 
@@ -1793,6 +1817,13 @@ namespace Kinect_2_Streams_Recorder
                             this.skelfile.Close();
                             this.skelfile.Dispose();
                             this.skelfile = null;
+                        }
+
+                        if (this.floorfile != null)
+                        {
+                            this.floorfile.Close();
+                            this.floorfile.Dispose();
+                            this.floorfile = null;
                         }
 
                         if (this.facefile != null)
